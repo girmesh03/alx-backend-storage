@@ -5,22 +5,34 @@
 
 DROP PROCEDURE IF EXISTS ComputeAverageWeightedScoreForUsers;
 DELIMITER $$
-
 CREATE PROCEDURE ComputeAverageWeightedScoreForUsers ()
 BEGIN
-	DECLARE user_id INT;
-	DECLARE done INT DEFAULT FALSE;
-	DECLARE cur CURSOR FOR SELECT id FROM users;
-	DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
-	OPEN cur;
-	read_loop: LOOP
-		FETCH cur INTO user_id;
-		IF done THEN
-			LEAVE read_loop;
-		END IF;
-		CALL ComputeAverageWeightedScoreForUser(user_id);
-	END LOOP;
-	CLOSE cur;
-END$$
+    ALTER TABLE users ADD weighted_score INT NOT NULL;
+    ALTER TABLE users ADD total_weight INT NOT NULL;
 
+    UPDATE users
+        SET weighted_score = (
+            SELECT SUM(corrections.score * projects.weight)
+            FROM corrections
+                INNER JOIN projects
+                    ON corrections.project_id = projects.id
+            WHERE corrections.user_id = users.id
+            );
+
+    UPDATE users
+        SET total_weight = (
+            SELECT SUM(projects.weight)
+                FROM corrections
+                    INNER JOIN projects
+                        ON corrections.project_id = projects.id
+                WHERE corrections.user_id = users.id
+            );
+
+    UPDATE users
+        SET users.average_score = IF(users.total_weight = 0, 0, users.weighted_score / users.total_weight);
+    ALTER TABLE users
+        DROP COLUMN weighted_score;
+    ALTER TABLE users
+        DROP COLUMN total_weight;
+END $$
 DELIMITER ;
