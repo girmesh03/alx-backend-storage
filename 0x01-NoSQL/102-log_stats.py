@@ -5,8 +5,9 @@ Log stats - new version
 
 from pymongo import MongoClient
 
-if __name__ == "__main__":
-    client = MongoClient('mongodb://127.0.0.1:27017')
+
+def log_stats():
+    client = MongoClient()
     logs_collection = client.logs.nginx
 
     total_logs = logs_collection.count_documents({})
@@ -35,3 +36,7 @@ if __name__ == "__main__":
     print("IPs:")
     for ip_count in ip_counts:
         print("\t{}: {}".format(ip_count['_id'], ip_count['count']))
+
+
+if __name__ == "__main__":
+    log_stats()
