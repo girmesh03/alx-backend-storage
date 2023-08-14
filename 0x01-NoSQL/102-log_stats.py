@@ -1,27 +1,26 @@
 #!/usr/bin/env python3
-"""
-Log stats - new version
-"""
-
+""" Log stats - new version """
 from pymongo import MongoClient
 
-if __name__ == "__main__":
-    client = MongoClient('mongodb://127.0.0.1:27017')
-    logs_collection = client.logs.nginx
 
-    total_logs = logs_collection.count_documents({})
+def nginx_stats_check():
+    """ provides some stats about Nginx logs stored in MongoDB:"""
+    client = MongoClient()
+    collection = client.logs.nginx
+
+    total_logs = collection.count_documents({})
 
     print(f"{total_logs} logs")
 
     methods = ["GET", "POST", "PUT", "PATCH", "DELETE"]
-    method_counts = {method: logs_collection.count_documents(
+    method_counts = {method: collection.count_documents(
         {"method": method}) for method in methods}
 
     print("Methods:")
     for method, count in method_counts.items():
         print(f"    method {method}: {count}")
 
-    status_checks = logs_collection.count_documents(
+    status_checks = collection.count_documents(
         {"method": "GET", "path": "/status"})
 
     print(f"{status_checks} status check")
@@ -32,8 +31,12 @@ if __name__ == "__main__":
         {"$limit": 10}
     ]
 
-    top_ips = logs_collection.aggregate(pipeline)
+    top_ips = collection.aggregate(pipeline)
 
     print("IPs:")
     for ip in top_ips:
-        print(f"    {ip['_id']}: {ip['count']}")
+        print(f"{ip['_id']}: {ip['count']}")
+
+
+if __name__ == "__main__":
+    nginx_stats_check()
