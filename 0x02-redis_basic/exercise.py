@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Cache Class
+Main file
 """
 
+import functools
+from typing import Callable
 import redis
 import uuid
-from typing import Callable, Union
 
 class Cache:
     """
@@ -19,13 +20,12 @@ class Cache:
         self._redis = redis.Redis()
         self._redis.flushdb()
 
-    def store(self, data: Union[str, bytes, int, float]) -> str:
+    def store(self, data: bytes) -> str:
         """
         Store data in Redis.
 
         Args:
-            data (Union[str, bytes, int, float]):
-            The data to store.
+            data (bytes): The data to store.
 
         Returns:
             str: The generated key for the stored data.
@@ -34,62 +34,47 @@ class Cache:
         self._redis.set(key, data)
         return key
 
-    def get(self, key: str, fn: Callable = None) -> \
-        Union[str, bytes, int, float, None]:
+    def get(self, key: str) -> bytes:
         """
-        Retrieve data from Redis and optionally convert
-        using the provided function.
-
-        Args:
-            key (str): The key associated with the data.
-            fn (Callable, optional): A callable function
-            for data conversion.
-
-        Returns:
-            Union[str, bytes, int, float, None]: The retrieved data.
-        """
-        data = self._redis.get(key)
-        if data is None:
-            return None
-
-        if fn is not None:
-            return fn(data)
-
-        return data
-
-    def get_str(self, key: str) -> Union[str, None]:
-        """
-        Retrieve a UTF-8 string data from Redis.
+        Retrieve data from Redis.
 
         Args:
             key (str): The key associated with the data.
 
         Returns:
-            Union[str, None]: The retrieved string data.
+            bytes: The retrieved data.
         """
-        return self.get(key, fn=lambda d: d.decode('utf-8'))
+        return self._redis.get(key)
 
-    def get_int(self, key: str) -> Union[int, None]:
-        """
-        Retrieve an integer data from Redis.
+def count_calls(method: Callable) -> Callable:
+    """
+    Decorator that counts the number of times a method is called.
 
-        Args:
-            key (str): The key associated with the data.
+    Args:
+        method (Callable): The method to decorate.
 
-        Returns:
-            Union[int, None]: The retrieved integer data.
-        """
-        return self.get(key, fn=int)
+    Returns:
+        Callable: The decorated method.
+    """
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        key = method.__qualname__
+        self._redis.incr(key)
+        return method(self, *args, **kwargs)
+
+    return wrapper
 
 if __name__ == "__main__":
     cache = Cache()
 
     TEST_CASES = {
-        b"foo": None,
-        123: int,
-        "bar": lambda d: d.decode("utf-8")
+        b"first",
+        b"second",
+        b"third"
     }
 
-    for value, fn in TEST_CASES.items():
-        key = cache.store(value)
-        assert cache.get(key, fn=fn) == value
+    cache.store = count_calls(cache.store)  # Applying the decorator here
+
+    for data in TEST_CASES:
+        cache.store(data)
+        print(cache.get(cache.store.__qualname__))
