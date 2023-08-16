@@ -46,4 +46,4 @@ if __name__ == "__main__":
     for _ in range(3):
         content = get_page(url)
         # print(content)
-        time.sleep(10)
+        # time.sleep(10)
